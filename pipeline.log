@@ -1,0 +1,42 @@
+2026-09-24 15:17:25,658 - INFO - __main__ - Starting traffic data pipeline.
+2026-09-24 15:17:25,727 - INFO - __main__ - Data loaded successfully: 48204 rows and 9 columns
+2026-09-24 15:17:25,728 - INFO - __main__ - Schema validation successful.
+2026-09-24 15:17:25,768 - INFO - __main__ - Removed 17 exact duplicate rows.
+2026-09-24 15:17:25,899 - INFO - __main__ - date_time converted to datetime format.
+2026-09-24 15:17:25,900 - WARNING - __main__ - Found 10 invalid temperature values.
+2026-09-24 15:17:25,903 - INFO - __main__ - Imputed 10 missing temperature values with median 282.46 K.
+2026-09-24 15:17:25,904 - INFO - __main__ - Basic data cleaning completed.
+2026-09-24 15:17:25,904 - INFO - __main__ - Data cleaning finished. Final dataset contains 48187 rows.
+2026-09-24 15:17:25,905 - INFO - __main__ - Traffic data pipeline completed successfully.
+2026-09-24 15:38:04,518 - INFO - __main__ - Starting feature engineering.
+2026-09-24 15:38:04,537 - INFO - __main__ - Created hour, day_of_week and is_weekend features.
+2026-09-24 15:38:04,541 - INFO - __main__ - Created cyclical hour features: hour_sin and hour_cos.
+2026-09-24 15:38:04,563 - INFO - __main__ - One-hot encoded weather_main into 11 weather features.
+2026-09-24 15:38:04,569 - INFO - __main__ - Standardised continuous variable: temp.
+2026-09-24 15:38:04,571 - INFO - __main__ - Standardised continuous variable: clouds_all.
+2026-09-24 15:38:04,576 - INFO - __main__ - Created data-driven traffic congestion categories using tertiles.
+2026-09-24 15:48:33,396 - INFO - __main__ - Starting visualisation generation.
+2026-09-24 15:48:33,627 - INFO - __main__ - Saved visualisation: figures/traffic_by_hour.png
+2026-09-24 15:48:33,885 - INFO - __main__ - Saved visualisation: figures/weekday_vs_weekend_by_hour.png
+2026-09-24 15:48:34,064 - INFO - __main__ - Saved visualisation: figures/traffic_by_day_of_week.png
+2026-09-24 15:48:34,065 - INFO - __main__ - Visualisation generation completed.
+2026-09-24 16:03:27,514 - INFO - __main__ - Starting Traffic Query App.
+2026-09-24 16:03:27,636 - INFO - pipeline - Data loaded successfully: 48204 rows and 9 columns
+2026-09-24 16:03:27,641 - INFO - pipeline - Schema validation successful.
+2026-09-24 16:03:27,693 - INFO - pipeline - Removed 17 exact duplicate rows.
+2026-09-24 16:03:27,930 - INFO - pipeline - date_time converted to datetime format.
+2026-09-24 16:03:27,932 - WARNING - pipeline - Found 10 invalid temperature values.
+2026-09-24 16:03:27,935 - INFO - pipeline - Imputed 10 missing temperature values with median 282.46 K.
+2026-09-24 16:03:27,936 - INFO - pipeline - Basic data cleaning completed.
+2026-09-24 16:03:27,937 - INFO - pipeline - Data cleaning finished. Final dataset contains 48187 rows.
+2026-09-24 16:04:12,107 - INFO - __main__ - CLI command selected: 1
+2026-09-24 16:04:21,746 - INFO - __main__ - CLI query: average traffic for hour 16.
+2026-09-24 16:10:37,802 - INFO - pipeline - Schema validation successful.
+2026-09-24 16:10:37,825 - INFO - pipeline - Removed 1 exact duplicate rows.
+2026-09-24 16:10:37,827 - INFO - pipeline - date_time converted to datetime format.
+2026-09-24 16:10:37,828 - INFO - pipeline - Basic data cleaning completed.
+2026-09-24 16:10:37,828 - INFO - pipeline - Data cleaning finished. Final dataset contains 2 rows.
+2026-09-24 16:10:37,850 - INFO - pipeline - Removed 0 exact duplicate rows.
+2026-09-24 16:10:37,852 - INFO - pipeline - date_time converted to datetime format.
+2026-09-24 16:10:37,853 - INFO - pipeline - Basic data cleaning completed.
+2026-09-24 16:10:37,853 - INFO - pipeline - Data cleaning finished. Final dataset contains 2 rows.
