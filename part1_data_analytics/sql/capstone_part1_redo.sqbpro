@@ -1,0 +1,772 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="C:/Users/jacqh/OneDrive/Desktop/ai ml nus comp science 2026/week 33/capstone_part1_redo.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="1415"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="Metro_Interstate_Traffic_Volume" custom_title="0" dock_id="4" table="4,31:mainMetro_Interstate_Traffic_Volume"/><dock_state state="000000ff00000000fd0000000100000002000001b000000387fc0100000002fb000000160064006f0063006b00420072006f00770073006500310100000000000005bb0000000000000000fb000000160064006f0063006b00420072006f00770073006500340100000000000001b00000013900ffffff000001b00000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings><table schema="main" name="Metro_Interstate_Traffic_Volume" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_" freeze_columns="0"><sort/><column_widths><column index="1" value="103"/><column index="2" value="55"/><column index="3" value="51"/><column index="4" value="58"/><column index="5" value="64"/><column index="6" value="103"/><column index="7" value="263"/><column index="8" value="135"/><column index="9" value="91"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table></browse_table_settings></tab_browse><tab_sql><sql name="SQL 1*">-- Task 1.1: Verify that the dataset was loaded correctly
+
+SELECT COUNT(*) AS total_rows
+FROM Metro_Interstate_Traffic_Volume;
+
+-- =====================================================
+-- Task 1.2: Check for exact duplicate rows
+-- =====================================================
+
+SELECT
+    COUNT(*) AS total_rows,
+    COUNT(*) - COUNT(DISTINCT
+        holiday || '|' ||
+        temp || '|' ||
+        rain_1h || '|' ||
+        snow_1h || '|' ||
+        clouds_all || '|' ||
+        weather_main || '|' ||
+        weather_description || '|' ||
+        date_time || '|' ||
+        traffic_volume
+    ) AS exact_duplicate_rows
+FROM Metro_Interstate_Traffic_Volume;
+
+-- =====================================================
+-- Task 1.2b: Verify exact duplicate rows
+-- =====================================================
+
+SELECT SUM(duplicate_count - 1) AS exact_duplicate_rows
+FROM (
+    SELECT
+        COUNT(*) AS duplicate_count
+    FROM Metro_Interstate_Traffic_Volume
+    GROUP BY
+        holiday,
+        temp,
+        rain_1h,
+        snow_1h,
+        clouds_all,
+        weather_main,
+        weather_description,
+        date_time,
+        traffic_volume
+    HAVING COUNT(*) &gt; 1
+);
+-- =====================================================
+-- Task 1.2: Check repeated date_time values
+-- before calculating yearly traffic totals
+-- =====================================================
+
+SELECT
+    date_time,
+    COUNT(*) AS number_of_records,
+    MIN(traffic_volume) AS min_traffic,
+    MAX(traffic_volume) AS max_traffic
+FROM Metro_Interstate_Traffic_Volume
+GROUP BY date_time
+HAVING COUNT(*) &gt; 1
+ORDER BY number_of_records DESC;
+
+-- =====================================================
+-- Task 1.2: Check whether repeated timestamps
+-- have different traffic-volume values
+-- =====================================================
+
+SELECT COUNT(*) AS repeated_times_with_different_traffic
+FROM (
+    SELECT
+        date_time
+    FROM Metro_Interstate_Traffic_Volume
+    GROUP BY date_time
+    HAVING COUNT(*) &gt; 1
+       AND MIN(traffic_volume) &lt;&gt; MAX(traffic_volume)
+);
+-- =====================================================
+-- Task 1.2: Total yearly traffic volume, 2012-2017
+-- One traffic-volume value per unique date_time
+-- =====================================================
+
+WITH unique_hours AS (
+    SELECT
+        date_time,
+        MAX(traffic_volume) AS traffic_volume
+    FROM Metro_Interstate_Traffic_Volume
+    GROUP BY date_time
+)
+
+SELECT
+    substr(date_time, instr(date_time, ' ') - 4, 4) AS year,
+    COUNT(*) AS observed_hours,
+    SUM(traffic_volume) AS total_traffic_volume
+FROM unique_hours
+WHERE substr(date_time, instr(date_time, ' ') - 4, 4)
+      BETWEEN '2012' AND '2017'
+GROUP BY year
+ORDER BY year;
+
+-- =====================================================
+-- Task 1.2: Check number of observed traffic hours
+-- in each year
+-- =====================================================
+
+WITH unique_hours AS (
+    SELECT
+        date_time
+    FROM Metro_Interstate_Traffic_Volume
+    GROUP BY date_time
+)
+
+SELECT
+    substr(date_time, instr(date_time, ' ') - 4, 4) AS year,
+    COUNT(*) AS observed_hours
+FROM unique_hours
+WHERE substr(date_time, instr(date_time, ' ') - 4, 4)
+      BETWEEN '2012' AND '2017'
+GROUP BY year
+ORDER BY year;
+-- =====================================================
+-- Task 1.2: Year-on-year change in total traffic volume
+-- =====================================================
+
+WITH unique_hours AS (
+    SELECT
+        date_time,
+        MAX(traffic_volume) AS traffic_volume
+    FROM Metro_Interstate_Traffic_Volume
+    GROUP BY date_time
+),
+
+yearly_traffic AS (
+    SELECT
+        substr(date_time, instr(date_time, ' ') - 4, 4) AS year,
+        SUM(traffic_volume) AS total_traffic_volume
+    FROM unique_hours
+    WHERE substr(date_time, instr(date_time, ' ') - 4, 4)
+          BETWEEN '2012' AND '2017'
+    GROUP BY year
+)
+
+SELECT
+    year,
+    total_traffic_volume,
+
+    total_traffic_volume -
+        LAG(total_traffic_volume) OVER (ORDER BY year)
+        AS change_from_previous_year,
+
+    ROUND(
+        100.0 *
+        (total_traffic_volume -
+            LAG(total_traffic_volume) OVER (ORDER BY year))
+        /
+        LAG(total_traffic_volume) OVER (ORDER BY year),
+        2
+    ) AS percent_change
+
+FROM yearly_traffic
+ORDER BY year;
+
+-- =====================================================
+-- Task 1.3: Check holiday labels for 2015-2017
+-- =====================================================
+
+SELECT
+    holiday,
+    date_time,
+    temp,
+    traffic_volume
+FROM Metro_Interstate_Traffic_Volume
+WHERE holiday IN ('New Years Day', 'Labor Day')
+  AND (
+      date_time LIKE '%2015%'
+      OR date_time LIKE '%2016%'
+      OR date_time LIKE '%2017%'
+  )
+ORDER BY date_time;
+
+-- =====================================================
+-- Task 1.3: Check available hourly records
+-- for New Year's Day and Labor Day, 2015-2017
+-- =====================================================
+
+SELECT
+    CASE
+        WHEN date_time LIKE '1/1/2015 %' THEN '2015 New Years Day'
+        WHEN date_time LIKE '1/1/2016 %' THEN '2016 New Years Day'
+        WHEN date_time LIKE '1/1/2017 %' THEN '2017 New Years Day'
+        WHEN date_time LIKE '7/9/2015 %' THEN '2015 Labor Day'
+        WHEN date_time LIKE '5/9/2016 %' THEN '2016 Labor Day'
+        WHEN date_time LIKE '4/9/2017 %' THEN '2017 Labor Day'
+    END AS holiday_date,
+    COUNT(DISTINCT date_time) AS observed_hours
+FROM Metro_Interstate_Traffic_Volume
+WHERE date_time LIKE '1/1/2015 %'
+   OR date_time LIKE '1/1/2016 %'
+   OR date_time LIKE '1/1/2017 %'
+   OR date_time LIKE '7/9/2015 %'
+   OR date_time LIKE '5/9/2016 %'
+   OR date_time LIKE '4/9/2017 %'
+GROUP BY holiday_date
+
+-- =====================================================
+-- Task 1.3: Check January 2015 data availability
+-- =====================================================
+
+SELECT
+    date_time,
+    temp,
+    traffic_volume
+FROM Metro_Interstate_Traffic_Volume
+WHERE date_time LIKE '%/1/2015 %'
+ORDER BY date_time;
+
+-- =====================================================
+-- Task 1.3: Temperature patterns on New Year's Day
+-- and Labor Day, 2015-2017
+-- One value per unique timestamp
+-- =====================================================
+
+WITH holiday_hours AS (
+    SELECT
+        date_time,
+        AVG(temp) AS temp
+    FROM Metro_Interstate_Traffic_Volume
+    WHERE date_time LIKE '1/1/2015 %'
+       OR date_time LIKE '1/1/2016 %'
+       OR date_time LIKE '1/1/2017 %'
+       OR date_time LIKE '7/9/2015 %'
+       OR date_time LIKE '5/9/2016 %'
+       OR date_time LIKE '4/9/2017 %'
+    GROUP BY date_time
+)
+
+SELECT
+    CASE
+        WHEN date_time LIKE '1/1/2015 %' THEN '2015 New Years Day'
+        WHEN date_time LIKE '1/1/2016 %' THEN '2016 New Years Day'
+        WHEN date_time LIKE '1/1/2017 %' THEN '2017 New Years Day'
+        WHEN date_time LIKE '7/9/2015 %' THEN '2015 Labor Day'
+        WHEN date_time LIKE '5/9/2016 %' THEN '2016 Labor Day'
+        WHEN date_time LIKE '4/9/2017 %' THEN '2017 Labor Day'
+    END AS holiday_date,
+
+    COUNT(*) AS observed_hours,
+    ROUND(AVG(temp), 2) AS avg_temp_K,
+    ROUND(MIN(temp), 2) AS min_temp_K,
+    ROUND(MAX(temp), 2) AS max_temp_K
+
+FROM holiday_hours
+GROUP BY holiday_date
+ORDER BY holiday_date;
+ORDER BY holiday_date;
+
+-- =====================================================
+-- Task 1.3: Traffic conditions on New Year's Day
+-- and Labor Day, 2015-2017
+-- One traffic value per unique timestamp
+-- =====================================================
+
+WITH holiday_hours AS (
+    SELECT
+        date_time,
+        MAX(traffic_volume) AS traffic_volume
+    FROM Metro_Interstate_Traffic_Volume
+    WHERE date_time LIKE '1/1/2015 %'
+       OR date_time LIKE '1/1/2016 %'
+       OR date_time LIKE '1/1/2017 %'
+       OR date_time LIKE '7/9/2015 %'
+       OR date_time LIKE '5/9/2016 %'
+       OR date_time LIKE '4/9/2017 %'
+    GROUP BY date_time
+)
+
+SELECT
+    CASE
+        WHEN date_time LIKE '1/1/2015 %' THEN '2015 New Years Day'
+        WHEN date_time LIKE '1/1/2016 %' THEN '2016 New Years Day'
+        WHEN date_time LIKE '1/1/2017 %' THEN '2017 New Years Day'
+        WHEN date_time LIKE '7/9/2015 %' THEN '2015 Labor Day'
+        WHEN date_time LIKE '5/9/2016 %' THEN '2016 Labor Day'
+        WHEN date_time LIKE '4/9/2017 %' THEN '2017 Labor Day'
+    END AS holiday_date,
+
+    COUNT(*) AS observed_hours,
+    ROUND(AVG(traffic_volume), 0) AS avg_traffic,
+    MIN(traffic_volume) AS min_traffic,
+    MAX(traffic_volume) AS max_traffic
+
+FROM holiday_hours
+GROUP BY holiday_date
+ORDER BY holiday_date;
+
+-- =====================================================
+-- Task 2.1: Traffic volume descriptive statistics
+-- One traffic-volume value per unique date_time
+-- =====================================================
+
+WITH unique_hours AS (
+    SELECT
+        date_time,
+        MAX(traffic_volume) AS traffic_volume
+    FROM Metro_Interstate_Traffic_Volume
+    GROUP BY date_time
+)
+
+SELECT
+    COUNT(*) AS number_of_observations,
+    ROUND(AVG(traffic_volume), 2) AS mean_traffic,
+    MIN(traffic_volume) AS minimum_traffic,
+    MAX(traffic_volume) AS maximum_traffic,
+    MAX(traffic_volume) - MIN(traffic_volume) AS traffic_range
+FROM unique_hours;
+
+-- =====================================================
+-- Task 2.1: Median traffic volume
+-- One traffic-volume value per unique date_time
+-- =====================================================
+
+WITH unique_hours AS (
+    SELECT
+        date_time,
+        MAX(traffic_volume) AS traffic_volume
+    FROM Metro_Interstate_Traffic_Volume
+    GROUP BY date_time
+),
+ordered_traffic AS (
+    SELECT
+        traffic_volume,
+        ROW_NUMBER() OVER (ORDER BY traffic_volume) AS row_num,
+        COUNT(*) OVER () AS total_rows
+    FROM unique_hours
+)
+
+SELECT
+    AVG(traffic_volume) AS median_traffic
+FROM ordered_traffic
+WHERE row_num IN (
+    (total_rows + 1) / 2,
+    (total_rows + 2) / 2
+);
+
+-- =====================================================
+-- Task 2.1: Variance and standard deviation
+-- One traffic-volume value per unique date_time
+-- =====================================================
+
+WITH unique_hours AS (
+    SELECT
+        date_time,
+        MAX(traffic_volume) AS traffic_volume
+    FROM Metro_Interstate_Traffic_Volume
+    GROUP BY date_time
+),
+mean_value AS (
+    SELECT
+        AVG(traffic_volume) AS mean_traffic
+    FROM unique_hours
+)
+
+SELECT
+    ROUND(
+        AVG(
+            (traffic_volume - mean_traffic) *
+            (traffic_volume - mean_traffic)
+        ), 2
+    ) AS variance,
+
+    ROUND(
+        SQRT(
+            AVG(
+                (traffic_volume - mean_traffic) *
+                (traffic_volume - mean_traffic)
+            )
+        ), 2
+    ) AS standard_deviation
+
+FROM unique_hours, mean_value;
+
+-- =====================================================
+-- Task 2.2: Correlation between temperature
+-- and traffic volume
+-- One observation per unique date_time
+-- =====================================================
+
+WITH unique_hours AS (
+    SELECT
+        date_time,
+        AVG(temp) AS temp,
+        MAX(traffic_volume) AS traffic_volume
+    FROM Metro_Interstate_Traffic_Volume
+    GROUP BY date_time
+),
+
+means AS (
+    SELECT
+        AVG(temp) AS mean_temp,
+        AVG(traffic_volume) AS mean_traffic
+    FROM unique_hours
+)
+
+SELECT
+    ROUND(
+        SUM(
+            (temp - mean_temp) *
+            (traffic_volume - mean_traffic)
+        )
+        /
+        SQRT(
+            SUM(
+                (temp - mean_temp) *
+                (temp - mean_temp)
+            )
+            *
+            SUM(
+                (traffic_volume - mean_traffic) *
+                (traffic_volume - mean_traffic)
+            )
+        ),
+        4
+    ) AS correlation_coefficient
+
+FROM unique_hours, means;
+
+-- =====================================================
+-- Task 3.1: Basic probabilities
+-- Congestion = traffic volume &gt; 5500
+-- =====================================================
+
+WITH unique_records AS (
+    SELECT DISTINCT
+        date_time,
+        weather_main,
+        traffic_volume
+    FROM Metro_Interstate_Traffic_Volume
+)
+
+SELECT
+    COUNT(*) AS total_records,
+
+    SUM(CASE
+        WHEN traffic_volume &gt; 5500 THEN 1
+        ELSE 0
+    END) AS congested_records,
+
+    SUM(CASE
+        WHEN weather_main = 'Clear' THEN 1
+        ELSE 0
+    END) AS clear_weather_records,
+
+    SUM(CASE
+        WHEN traffic_volume &gt; 5500
+         AND weather_main = 'Clear' THEN 1
+        ELSE 0
+    END) AS congestion_and_clear,
+
+    ROUND(
+        1.0 * SUM(CASE WHEN traffic_volume &gt; 5500 THEN 1 ELSE 0 END)
+        / COUNT(*), 4
+    ) AS P_congestion,
+
+    ROUND(
+        1.0 * SUM(CASE WHEN weather_main = 'Clear' THEN 1 ELSE 0 END)
+        / COUNT(*), 4
+    ) AS P_clear,
+
+    ROUND(
+        1.0 * SUM(CASE
+            WHEN traffic_volume &gt; 5500
+             AND weather_main = 'Clear' THEN 1
+            ELSE 0
+        END) / COUNT(*), 4
+    ) AS P_congestion_AND_clear
+
+FROM unique_records;
+
+-- =====================================================
+-- Task 3.2: Conditional probabilities
+-- P(Clear Weather | Congestion)
+-- P(High Temperature | Congestion)
+-- High temperature = temp &gt; 292 K
+-- =====================================================
+
+WITH unique_records AS (
+    SELECT DISTINCT
+        date_time,
+        weather_main,
+        temp,
+        traffic_volume
+    FROM Metro_Interstate_Traffic_Volume
+)
+
+SELECT
+    SUM(CASE
+        WHEN traffic_volume &gt; 5500 THEN 1
+        ELSE 0
+    END) AS congested_records,
+
+    SUM(CASE
+        WHEN traffic_volume &gt; 5500
+         AND weather_main = 'Clear' THEN 1
+        ELSE 0
+    END) AS clear_and_congested,
+
+    ROUND(
+        1.0 * SUM(CASE
+            WHEN traffic_volume &gt; 5500
+             AND weather_main = 'Clear' THEN 1
+            ELSE 0
+        END)
+        /
+        SUM(CASE
+            WHEN traffic_volume &gt; 5500 THEN 1
+            ELSE 0
+        END),
+        4
+    ) AS P_clear_given_congestion,
+
+    SUM(CASE
+        WHEN traffic_volume &gt; 5500
+         AND temp &gt; 292 THEN 1
+        ELSE 0
+    END) AS high_temp_and_congested,
+
+    ROUND(
+        1.0 * SUM(CASE
+            WHEN traffic_volume &gt; 5500
+             AND temp &gt; 292 THEN 1
+            ELSE 0
+        END)
+        /
+        SUM(CASE
+            WHEN traffic_volume &gt; 5500 THEN 1
+            ELSE 0
+        END),
+        4
+    ) AS P_high_temp_given_congestion
+
+FROM unique_records;
+
+-- =====================================================
+-- Task 3.2: Check repeated timestamp/weather records
+-- with different temperature values
+-- =====================================================
+
+SELECT
+    date_time,
+    weather_main,
+    traffic_volume,
+    COUNT(DISTINCT temp) AS number_of_temperatures,
+    MIN(temp) AS minimum_temp,
+    MAX(temp) AS maximum_temp
+FROM Metro_Interstate_Traffic_Volume
+GROUP BY
+    date_time,
+    weather_main,
+    traffic_volume
+HAVING COUNT(DISTINCT temp) &gt; 1
+ORDER BY number_of_temperatures DESC;
+
+-- =====================================================
+-- Task 3.2: Identify records causing extra
+-- congested observations when temperature is included
+-- =====================================================
+
+SELECT
+    date_time,
+    weather_main,
+    traffic_volume,
+    COUNT(DISTINCT temp) AS number_of_temperatures,
+    MIN(temp) AS minimum_temp,
+    MAX(temp) AS maximum_temp
+FROM Metro_Interstate_Traffic_Volume
+WHERE traffic_volume &gt; 5500
+GROUP BY
+    date_time,
+    weather_main,
+    traffic_volume
+HAVING COUNT(DISTINCT temp) &gt; 1
+ORDER BY date_time;
+
+-- =====================================================
+-- Task 3.2: Conditional probabilities - corrected
+-- One record per date_time + weather + traffic volume
+-- Average temperature used where otherwise identical
+-- records contain different temperature values
+-- =====================================================
+
+WITH unique_records AS (
+    SELECT
+        date_time,
+        weather_main,
+        traffic_volume,
+        AVG(temp) AS temp
+    FROM Metro_Interstate_Traffic_Volume
+    GROUP BY
+        date_time,
+        weather_main,
+        traffic_volume
+)
+
+SELECT
+    COUNT(*) AS total_records,
+
+    SUM(CASE
+        WHEN traffic_volume &gt; 5500 THEN 1
+        ELSE 0
+    END) AS congested_records,
+
+    SUM(CASE
+        WHEN traffic_volume &gt; 5500
+         AND weather_main = 'Clear' THEN 1
+        ELSE 0
+    END) AS clear_and_congested,
+
+    ROUND(
+        1.0 * SUM(CASE
+            WHEN traffic_volume &gt; 5500
+             AND weather_main = 'Clear' THEN 1
+            ELSE 0
+        END)
+        /
+        SUM(CASE
+            WHEN traffic_volume &gt; 5500 THEN 1
+            ELSE 0
+        END),
+        4
+    ) AS P_clear_given_congestion,
+
+    SUM(CASE
+        WHEN traffic_volume &gt; 5500
+         AND temp &gt; 292 THEN 1
+        ELSE 0
+    END) AS high_temp_and_congested,
+
+    ROUND(
+        1.0 * SUM(CASE
+            WHEN traffic_volume &gt; 5500
+             AND temp &gt; 292 THEN 1
+            ELSE 0
+        END)
+        /
+        SUM(CASE
+            WHEN traffic_volume &gt; 5500 THEN 1
+            ELSE 0
+        END),
+        4
+    ) AS P_high_temp_given_congestion
+
+FROM unique_records;
+
+-- =====================================================
+-- Task 3.2: Independence test
+-- Congestion and Clear Weather
+-- Independent if P(A AND B) = P(A) * P(B)
+-- =====================================================
+
+WITH unique_records AS (
+    SELECT
+        date_time,
+        weather_main,
+        traffic_volume
+    FROM Metro_Interstate_Traffic_Volume
+    GROUP BY
+        date_time,
+        weather_main,
+        traffic_volume
+),
+
+probabilities AS (
+    SELECT
+        1.0 * SUM(CASE
+            WHEN traffic_volume &gt; 5500 THEN 1 ELSE 0
+        END) / COUNT(*) AS P_congestion,
+
+        1.0 * SUM(CASE
+            WHEN weather_main = 'Clear' THEN 1 ELSE 0
+        END) / COUNT(*) AS P_clear,
+
+        1.0 * SUM(CASE
+            WHEN traffic_volume &gt; 5500
+             AND weather_main = 'Clear' THEN 1 ELSE 0
+        END) / COUNT(*) AS P_congestion_and_clear
+
+    FROM unique_records
+)
+
+SELECT
+    ROUND(P_congestion, 4) AS P_congestion,
+    ROUND(P_clear, 4) AS P_clear,
+    ROUND(P_congestion_and_clear, 4) AS P_congestion_AND_clear,
+
+    ROUND(P_congestion * P_clear, 4)
+        AS P_congestion_times_P_clear,
+
+    CASE
+        WHEN ABS(
+            P_congestion_and_clear -
+            (P_congestion * P_clear)
+        ) &lt; 0.0001
+        THEN 'Independent'
+        ELSE 'Not independent'
+    END AS independence_result
+
+FROM probabilities;
+
+-- =====================================================
+-- Task 3.2: Odds ratio of congestion
+-- Clear weather versus Cloudy weather
+-- Congestion = traffic volume &gt; 5500
+-- =====================================================
+
+WITH unique_records AS (
+    SELECT
+        date_time,
+        weather_main,
+        traffic_volume
+    FROM Metro_Interstate_Traffic_Volume
+    GROUP BY
+        date_time,
+        weather_main,
+        traffic_volume
+),
+
+counts AS (
+    SELECT
+        SUM(CASE
+            WHEN weather_main = 'Clear'
+             AND traffic_volume &gt; 5500 THEN 1 ELSE 0
+        END) AS clear_congested,
+
+        SUM(CASE
+            WHEN weather_main = 'Clear'
+             AND traffic_volume &lt;= 5500 THEN 1 ELSE 0
+        END) AS clear_not_congested,
+
+        SUM(CASE
+            WHEN weather_main = 'Clouds'
+             AND traffic_volume &gt; 5500 THEN 1 ELSE 0
+        END) AS cloudy_congested,
+
+        SUM(CASE
+            WHEN weather_main = 'Clouds'
+             AND traffic_volume &lt;= 5500 THEN 1 ELSE 0
+        END) AS cloudy_not_congested
+
+    FROM unique_records
+)
+
+SELECT
+    clear_congested,
+    clear_not_congested,
+    cloudy_congested,
+    cloudy_not_congested,
+
+    ROUND(
+        1.0 * clear_congested / clear_not_congested,
+        4
+    ) AS clear_congestion_odds,
+
+    ROUND(
+        1.0 * cloudy_congested / cloudy_not_congested,
+        4
+    ) AS cloudy_congestion_odds,
+
+    ROUND(
+        (1.0 * clear_congested / clear_not_congested)
+        /
+        (1.0 * cloudy_congested / cloudy_not_congested),
+        4
+    ) AS odds_ratio_clear_vs_cloudy
+
+FROM counts;</sql><current_tab id="0"/></tab_sql></sqlb_project>
